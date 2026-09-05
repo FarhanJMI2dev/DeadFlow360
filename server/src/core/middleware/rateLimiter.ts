@@ -6,7 +6,7 @@ import { getRedisClient } from '../cache/redis.client.js';
  * rateLimiter.ts
  *
  * Factory for Redis-backed rate limiters using express-rate-limit and rate-limit-redis.
- * Gracefully falls back to MemoryStore if Redis is unavailable.
+ * Gracefully falls back to MemoryStore if Redis is unavailable or if client methods differ.
  */
 
 export interface CreateLimiterOptions {
@@ -23,14 +23,42 @@ export interface CreateLimiterOptions {
 export function createRateLimiter(options: CreateLimiterOptions) {
   const client = getRedisClient();
 
-  const store = client
-    ? new RedisStore({
+  let store: any = undefined;
+
+  if (client) {
+    try {
+      store = new RedisStore({
         sendCommand: async (...args: string[]) => {
-          return (client as any).call(args[0], ...args.slice(1));
+          const command = args[0]?.toUpperCase();
+          if (typeof (client as any).call === 'function') {
+            return (client as any).call(args[0], ...args.slice(1));
+          }
+          if (command === 'EVAL') {
+            const script = args[1];
+            const numKeys = Number(args[2] || 0);
+            const keys = args.slice(3, 3 + numKeys);
+            const scriptArgs = args.slice(3 + numKeys);
+            return await client.eval(script, keys, scriptArgs);
+          }
+          if (command === 'EVALSHA') {
+            const sha = args[1];
+            const numKeys = Number(args[2] || 0);
+            const keys = args.slice(3, 3 + numKeys);
+            const scriptArgs = args.slice(3 + numKeys);
+            return await client.evalsha(sha, keys, scriptArgs);
+          }
+          if (command === 'SCRIPT' && args[1]?.toUpperCase() === 'LOAD') {
+            return await client.scriptLoad(args[2]);
+          }
+          return await (client as any).eval(args[0], [], args.slice(1));
         },
         prefix: `dealflow:rate:${options.name}:`,
-      })
-    : undefined;
+      });
+    } catch (err) {
+      console.warn(`⚠️ Failed to initialize RedisStore for rate limiter "${options.name}", using MemoryStore fallback.`);
+      store = undefined;
+    }
+  }
 
   return rateLimit({
     windowMs: options.windowMs,

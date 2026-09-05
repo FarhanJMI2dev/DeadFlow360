@@ -25,7 +25,11 @@ export const quotationStatusEnum = pgEnum('quotation_status', [
   'revision_required', 
   'fulfillment', 
   'confirmed', 
-  'under_negotiation'
+  'under_negotiation',
+  'open',
+  'negotiating',
+  'won',
+  'lost'
 ]);
 export const approvalStatusEnum = pgEnum('approval_status', ['pending', 'approved', 'rejected']);
 export const backorderStatusEnum = pgEnum('backorder_status', ['pending', 'fulfilled', 'cancelled']);

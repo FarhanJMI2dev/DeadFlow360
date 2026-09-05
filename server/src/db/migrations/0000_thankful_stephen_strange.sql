@@ -1,13 +1,49 @@
-CREATE TYPE "public"."approval_status" AS ENUM('pending', 'approved', 'rejected');--> statement-breakpoint
-CREATE TYPE "public"."backorder_status" AS ENUM('pending', 'fulfilled', 'cancelled');--> statement-breakpoint
-CREATE TYPE "public"."billing_status" AS ENUM('scheduled', 'invoiced', 'paid', 'failed');--> statement-breakpoint
-CREATE TYPE "public"."entity_type" AS ENUM('quotation', 'deal', 'product', 'company', 'contact');--> statement-breakpoint
-CREATE TYPE "public"."invoice_status" AS ENUM('draft', 'sent', 'paid', 'overdue');--> statement-breakpoint
-CREATE TYPE "public"."quotation_status" AS ENUM('open', 'negotiating', 'won', 'lost');--> statement-breakpoint
-CREATE TYPE "public"."severity" AS ENUM('low', 'medium', 'high', 'critical');--> statement-breakpoint
-CREATE TYPE "public"."user_role" AS ENUM('admin', 'sales_manager', 'finance', 'sales_rep');--> statement-breakpoint
-CREATE TYPE "public"."user_status" AS ENUM('active', 'inactive', 'suspended');--> statement-breakpoint
-CREATE TABLE "approvals" (
+DO $$ BEGIN
+ CREATE TYPE "public"."approval_status" AS ENUM('pending', 'approved', 'rejected');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."backorder_status" AS ENUM('pending', 'fulfilled', 'cancelled');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."billing_status" AS ENUM('scheduled', 'invoiced', 'paid', 'failed');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."entity_type" AS ENUM('quotation', 'deal', 'product', 'company', 'contact');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."invoice_status" AS ENUM('draft', 'sent', 'paid', 'overdue');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."quotation_status" AS ENUM('draft', 'pending_approval', 'approved', 'rejected', 'revision_required', 'fulfillment', 'confirmed', 'under_negotiation', 'open', 'negotiating', 'won', 'lost');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."severity" AS ENUM('low', 'medium', 'high', 'critical');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."user_role" AS ENUM('admin', 'sales_manager', 'finance', 'sales_rep');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."user_status" AS ENUM('active', 'inactive', 'suspended');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "approvals" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"quotation_id" uuid NOT NULL,
 	"approver_role" "user_role" NOT NULL,
@@ -17,7 +53,7 @@ CREATE TABLE "approvals" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "audit_logs" (
+CREATE TABLE IF NOT EXISTS "audit_logs" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"entity_type" "entity_type" NOT NULL,
 	"entity_id" uuid NOT NULL,
@@ -26,20 +62,20 @@ CREATE TABLE "audit_logs" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "backorders" (
+CREATE TABLE IF NOT EXISTS "backorders" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"order_line_id" uuid NOT NULL,
 	"status" "backorder_status" DEFAULT 'pending' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "billing_schedules" (
+CREATE TABLE IF NOT EXISTS "billing_schedules" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"quotation_id" uuid NOT NULL,
 	"billing_date" timestamp NOT NULL,
 	"status" "billing_status" DEFAULT 'scheduled' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "companies" (
+CREATE TABLE IF NOT EXISTS "companies" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar(255) NOT NULL,
 	"domain" varchar(255),
@@ -47,7 +83,7 @@ CREATE TABLE "companies" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "contacts" (
+CREATE TABLE IF NOT EXISTS "contacts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"first_name" varchar(100) NOT NULL,
@@ -58,7 +94,7 @@ CREATE TABLE "contacts" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "deal_health_alerts" (
+CREATE TABLE IF NOT EXISTS "deal_health_alerts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"quotation_id" uuid NOT NULL,
 	"unresolved" boolean DEFAULT true NOT NULL,
@@ -66,41 +102,41 @@ CREATE TABLE "deal_health_alerts" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "discount_policies" (
+CREATE TABLE IF NOT EXISTS "discount_policies" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tier_id" uuid NOT NULL,
 	"category_id" uuid,
 	"discount_percent" integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "fulfillments" (
+CREATE TABLE IF NOT EXISTS "fulfillments" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"quotation_id" uuid NOT NULL,
 	"shipped_at" timestamp
 );
 --> statement-breakpoint
-CREATE TABLE "inventory" (
+CREATE TABLE IF NOT EXISTS "inventory" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"product_id" uuid NOT NULL,
 	"available_qty" integer DEFAULT 0 NOT NULL,
 	"warehouse_id" uuid
 );
 --> statement-breakpoint
-CREATE TABLE "invoices" (
+CREATE TABLE IF NOT EXISTS "invoices" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"billing_id" uuid,
 	"status" "invoice_status" DEFAULT 'draft' NOT NULL,
 	"due_at" timestamp NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "negotiation_threads" (
+CREATE TABLE IF NOT EXISTS "negotiation_threads" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"quotation_id" uuid NOT NULL,
 	"message" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "order_lines" (
+CREATE TABLE IF NOT EXISTS "order_lines" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"order_id" uuid NOT NULL,
 	"line_type" varchar(50) NOT NULL,
@@ -108,18 +144,18 @@ CREATE TABLE "order_lines" (
 	"quantity" integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "orders" (
+CREATE TABLE IF NOT EXISTS "orders" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"quotation_id" uuid,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "product_categories" (
+CREATE TABLE IF NOT EXISTS "product_categories" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar(100) NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "products" (
+CREATE TABLE IF NOT EXISTS "products" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar(255) NOT NULL,
 	"category_id" uuid,
@@ -128,7 +164,7 @@ CREATE TABLE "products" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "quotations" (
+CREATE TABLE IF NOT EXISTS "quotations" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"title" varchar(255) NOT NULL,
 	"amount" integer DEFAULT 0 NOT NULL,
@@ -140,7 +176,7 @@ CREATE TABLE "quotations" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "refresh_tokens" (
+CREATE TABLE IF NOT EXISTS "refresh_tokens" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
 	"token_hash" varchar(255) NOT NULL,
@@ -149,13 +185,13 @@ CREATE TABLE "refresh_tokens" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "upsells" (
+CREATE TABLE IF NOT EXISTS "upsells" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"source_product_id" uuid NOT NULL,
 	"target_product_id" uuid NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"email" varchar(255) NOT NULL,
 	"full_name" varchar(255) NOT NULL,
